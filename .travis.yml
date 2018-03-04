@@ -1,0 +1,49 @@
+language: python
+dist: trusty
+sudo: required
+
+notifications:
+  email: false
+
+services:
+  - docker
+
+matrix:
+  include:
+    - python: "2.7"
+      env: OS=ubuntu-14.04
+    - python: "3.6"
+      env: OS=ubuntu-14.04
+
+env:
+  global:
+    - DOCKER_COMPOSE_VERSION=1.6.0
+
+
+before_install:
+  - pwd
+  - docker version
+  - docker-compose version
+
+  # Install miniconda and create `adam` environment
+  - bash ci/scripts/conda_setup.sh
+  - export PATH="$HOME/miniconda/bin:$PATH"
+
+  # Start containers
+  - ./start-sge.sh
+  - docker ps -a
+  - docker images
+
+install:
+  - which python
+
+script:
+  - docker exec -it sge_master /bin/bash -c "cd /dask-drmaa; pip install --no-cache-dir ."
+  - docker exec -it sge_master /bin/bash -c "cd /dask-drmaa; py.test dask_drmaa --verbose"
+
+after_success:
+  - docker exec -it sge_master bash -c 'cat /tmp/sge*'
+  - docker exec -it slave_one bash -c 'cat /tmp/exec*'
+  - docker exec -it slave_two bash -c 'cat /tmp/exec*'
+  - pip install --no-cache-dir coveralls
+  - coveralls
